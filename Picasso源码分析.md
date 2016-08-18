@@ -4,7 +4,7 @@
 
 **整体架构**
 
-![这里写图片描述](http://img.blog.csdn.net/20160818110007485)
+![这里写图片描述](https://github.com/AdleyLong/OriginCode/blob/master/pic/20151121153153494.png)
 
 Picasso中的核心类包括Picasso、Dispatcher、BitmapHunter、RequestHandler、Request、Action、Cache 等.Picasso类是一个负责图片下载、变换、缓存的管理器,当它收到一个图片下载请求的时候，它会创建Request并提交给Dispatcher, Dispatcher会寻找对应的处理器RequestHandler,并将请求与该处理器一起提交给线程池执行,图片获取成功后，最终会交给 PicassoDrawable显示到Target上。
 
@@ -17,14 +17,14 @@ Picasso中的核心类包括Picasso、Dispatcher、BitmapHunter、RequestHandler
 #源码分析
 先看下Picasso的最简单用法
 
-```
+```java
 Picasso.with(this).load("url").into(imageView);
 ```
 
 ##with()方法的实现
 Picasso类是整个图片加载器的入口，负责初始化各个模块，配置相关参数等等。 使用了**单例模式**。
 
-```
+```java
   public static Picasso with(Context context) {
     if (singleton == null) {
       synchronized (Picasso.class) {
@@ -39,7 +39,7 @@ Picasso类是整个图片加载器的入口，负责初始化各个模块，配�
 ```
 维护一个Picasso的单例,如果还未实例化就通过new Builder(context).build()创建一个singleton并返回,我们继续看Builder类的实现。
 
-```
+```java
 /** Create the {@link Picasso} instance. */
     public Picasso build() {
       Context context = this.context;
@@ -80,12 +80,12 @@ Picasso类是整个图片加载器的入口，负责初始化各个模块，配�
 ###Downloader
 如果用户没有自定义的话，那将使用默认downloader
 Picasso#Builder#build()
-```
+```java
 downloader = Utils.createDefaultDownloader(context);
 ```
 Utils#createDefaultDownloader
 
-```
+```java
 static Downloader createDefaultDownloader(Context context) {
     try {
       Class.forName("com.squareup.okhttp.OkHttpClient");
@@ -99,7 +99,7 @@ static Downloader createDefaultDownloader(Context context) {
 注:其实从4.4开始，okhttp已经作为HttpUrlConnection的实现引擎了。
 
 Utils#createDefaultCacheDir
-```
+```java
 private static final String PICASSO_CACHE = "picasso-cache";
   static File createDefaultCacheDir(Context context) {
     File cache = new File(context.getApplicationContext().getCacheDir(), PICASSO_CACHE);
@@ -115,7 +115,7 @@ private static final String PICASSO_CACHE = "picasso-cache";
 ###Cache
 缓存默认使用LRU算法，即least-recently used，近期最少使用算法。
 使用可用内存堆的1/7（15%）作为图片缓存。
-```
+```java
   static int calculateMemoryCacheSize(Context context) {
     ActivityManager am = getService(context, ACTIVITY_SERVICE);
     boolean largeHeap = (context.getApplicationInfo().flags & FLAG_LARGE_HEAP) != 0;
@@ -132,12 +132,12 @@ private static final String PICASSO_CACHE = "picasso-cache";
 PicassoExecutorService实现Picasso线程池，构造函数中实例化工作队列和线程工厂。
 
 默认的线程数是3条
-```
+```java
 private static final int DEFAULT_THREAD_COUNT = 3;
 ```
 同时也可以根据不同网络进行修改，wifi下是4个线程，4g下是3个，3g下是2个，而2g网只有一个线程，具体是通过在Dispatcher中注册了监听网络变化的广播接收者。（这个方法介绍dispatcher时候讲）
 
-```
+```java
 void adjustThreadCount(NetworkInfo info) {
     if (info == null || !info.isConnectedOrConnecting()) {
       setThreadCount(DEFAULT_THREAD_COUNT);
@@ -186,7 +186,7 @@ void adjustThreadCount(NetworkInfo info) {
 ###Dispatcher
 每一个Dispatcher都需要关联线程池(service)、下载器(downloader)、主线程的Handler(HANDLER)、缓存(cache)、 监控器(stats).
 
-```
+```java
       Dispatcher dispatcher = new Dispatcher(context, service, HANDLER, downloader, cache, stats);
 ```
 关于dispatcher内同涉及到下面的知识点，所有dispatcher的讲解会穿插在下面的内容中。
@@ -194,7 +194,7 @@ void adjustThreadCount(NetworkInfo info) {
 ###Picasso的构造方法
 Picasso的构造方法里除了对这些对象的赋值以及创建一些新的对象,例如清理线程等等.最重要的是初始化了requestHandlers
 
-```
+```java
 int builtInHandlers = 7; // Adjust this as internal handlers are added or removed.
     int extraCount = (extraRequestHandlers != null ? extraRequestHandlers.size() : 0);
     List<RequestHandler> allRequestHandlers =
@@ -220,13 +220,13 @@ int builtInHandlers = 7; // Adjust this as internal handlers are added or remove
 ##load()方法
 Picasso的load方法支持以下4种：
 
-```
+```java
   public RequestCreator load(Uri uri) {
     return new RequestCreator(this, uri, 0);
   }
 ```
 
-```
+```java
   public RequestCreator load(String path) {
     if (path == null) {
       return new RequestCreator(this, null, 0);
@@ -238,7 +238,7 @@ Picasso的load方法支持以下4种：
   }
 ```
 
-```
+```java
   public RequestCreator load(File file) {
     if (file == null) {
       return new RequestCreator(this, null, 0);
@@ -247,7 +247,7 @@ Picasso的load方法支持以下4种：
   }
 ```
 
-```
+```java
   public RequestCreator load(int resourceId) {
     if (resourceId == 0) {
       throw new IllegalArgumentException("Resource ID must not be zero.");
@@ -259,7 +259,7 @@ Picasso的load方法支持以下4种：
 在Picasso的load()方法里我们可以传入String,Uri或者File对象,但是其最终都是返回一个RequestCreator对象。
 再来看看RequestCreator的构造方法:
 
-```
+```java
  RequestCreator(Picasso picasso, Uri uri, int resourceId) {
     if (picasso.shutdown) {
       throw new IllegalStateException(
@@ -276,7 +276,7 @@ RequestCreator从名字就可以知道这是一个封装请求的类,请求在Pi
 当然RequestCreator也提供了into这个最重要的方法。
 into方法有多种重载，因为Picasso不仅仅可以将图片加载到ImageView上，还可以加载到Target或者RemoteView上. 
 这里选取imageView作为分析对象,该方法代码如下：
-```
+```java
  public void into(ImageView target, Callback callback) {
     long started = System.nanoTime();
     //检查是否在主线程中执行
@@ -354,7 +354,7 @@ into方法有多种重载，因为Picasso不仅仅可以将图片加载到ImageV
 
 那我们就来看看picasso.enqueueAndSubmit方法做了什么。
 ###picasso.enqueueAndSubmit
-```
+```java
   void enqueueAndSubmit(Action action) {
     Object target = action.getTarget();
     if (target != null && targetToAction.get(target) != action) {
@@ -373,14 +373,14 @@ into方法有多种重载，因为Picasso不仅仅可以将图片加载到ImageV
 submit的方法调用的是dispatcher的dispatchSubmit方法。这个dispatcher就是上文中在Picasso的Builder()里面初始化的那个Dispatcher对象。
 那又要回到Dispatcher这个类里面看dispatchSubmit这个方法了。
 
-```
+```java
 void dispatchSubmit(Action action) {
     handler.sendMessage(handler.obtainMessage(REQUEST_SUBMIT, action));
   }
 ```
 这里是发了一个消息给Dispatcher的handler，这个handler是DispatcherHandler的对象，
 
-```
+```java
 this.handler = new DispatcherHandler(dispatcherThread.getLooper(), this);
 ```
 而dispatcherThread则是一个HandlerThread，从代码中可以看出，这个handler的消息处理是在子线程进行的!这样就可以避免阻塞主线程的消息队列了!
@@ -432,7 +432,7 @@ void performSubmit(Action action, boolean dismissFailed) {
 
 下面又要跟一下hunter的run方法
 ###BitmapHunter的run()方法
-```
+```java
 @Override public void run() {
     try {
       updateThreadName(data);
@@ -474,7 +474,7 @@ void performSubmit(Action action, boolean dismissFailed) {
 ```
 一堆catch语句分别捕捉不同的异常然后上报给dispatcher进行处理，主要代码当然是 hunt()这个方法。
 ###hunt()方法
-```
+```java
 Bitmap hunt() throws IOException {
     Bitmap bitmap = null;
 	//依然先从缓存拿
@@ -545,7 +545,7 @@ Bitmap hunt() throws IOException {
 这个里面要分析的当然是requestHandler的load方法了。还记得Picasso的构造方法里面的那7中RequestHandler吗？这里的load方法也要看现在选择的是那个RequestHandler对象。
 这里我们就拿网络请求这个NetworkRequestHandler来作介绍。
 ###RequestHandler的load方法
-```
+```java
 @Override public Result load(Request request, int networkPolicy) throws IOException {
 	//这个download一开始介绍过了，是否依赖okhttp
 	//如果依赖的话，那就使用OkHttpClient，否则就使用默认的HttpUrlConnection了
@@ -580,7 +580,7 @@ Bitmap hunt() throws IOException {
 ```
 好了，这里已经获取到结果了，现在我们再回到BitmapHunter的run()方法，在获取到result之后，
 
-```
+```java
 result = hunt();
 
       if (result == null) {
@@ -592,14 +592,14 @@ result = hunt();
 接下来是dispatcher里面的方法调用了，dispatchComplete-->performComplete-->batch-->performBatchComplete-->发送信息给主线程（Picasso这个类）。
 这里有一点要注意的，就是performComplete这个函数里面，对于load下来的文件，有一个写入cache的操作。
 
-```
+```java
 if (shouldWriteToMemoryCache(hunter.getMemoryPolicy())) {
       cache.set(hunter.getKey(), hunter.getResult());
     }
 ```
 
 主线程mainThreadHandler处理：
-```
+```java
  case HUNTER_BATCH_COMPLETE: {
           @SuppressWarnings("unchecked") List<BitmapHunter> batch = (List<BitmapHunter>) msg.obj;
           //noinspection ForLoopReplaceableByForEach
@@ -614,7 +614,7 @@ if (shouldWriteToMemoryCache(hunter.getMemoryPolicy())) {
 hunter.picasso.complete(hunter)-->deliverAction-->action.complete(result, from);
 这里，如果是ImageView的话，那就是ImageViewAction的complete方法。
 
-```
+```java
 @Override public void complete(Bitmap result, Picasso.LoadedFrom from) {
     if (result == null) {
       throw new AssertionError(
@@ -638,9 +638,11 @@ hunter.picasso.complete(hunter)-->deliverAction-->action.complete(result, from);
 图片最终通过PicassoDrawable.setBitmap()方法被设置到ImageView上. 
 这个PicassoDrawable提供了fade动画.
 最终以一张时序图收尾
-![这里写图片描述](http://img.blog.csdn.net/20160818152634900)
+![这里写图片描述](https://github.com/AdleyLong/OriginCode/blob/master/pic/20151121153243196.png)
 
 
 参考文章：
+
 [picasso-强大的Android图片下载缓存库](http://www.jcodecraeer.com/a/anzhuokaifa/androidkaifa/2014/0731/1639.html)
+
 [Picasso源代码分析](http://skykai521.github.io/2016/02/25/Picasso%E6%BA%90%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90/)
